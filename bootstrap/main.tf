@@ -16,7 +16,7 @@ variable "environment" {
 
 variable "region" {
   type    = string
-  default = "eu-central-1"
+  default = "eu-west-1"
 }
 
 variable "org_prefix" {
