@@ -1,0 +1,93 @@
+name: terraform-apply
+
+# dev branch -> dev, staging branch -> staging, main -> prod
+on:
+  push:
+    branches: [dev, staging, main]
+
+permissions:
+  contents: read
+  id-token: write
+
+# one apply at a time per env, never cancel a running apply
+concurrency:
+  group: apply-${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TF_ENV: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: envs/${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars[format('PLAN_ROLE_ARN_{0}', env.TF_ENV)] }}
+          aws-region: eu-west-1
+
+      - run: terraform init -input=false
+      - run: terraform validate
+
+      - name: Plan
+        run: terraform plan -input=false -lock=false -no-color -out=tfplan
+
+      - name: Plan in job summary (so the approver can see it)
+        run: |
+          {
+            echo "### Plan for \`$TF_ENV\` @ \`${GITHUB_SHA::7}\`"
+            echo '```'
+            terraform show -no-color tfplan | head -c 60000
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_ENV }}
+          path: envs/${{ env.TF_ENV }}/tfplan
+          retention-days: 3
+
+  apply:
+    name: Apply
+    needs: plan
+    runs-on: ubuntu-latest
+    # approval for prod is configured on the github environment
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    defaults:
+      run:
+        working-directory: envs/${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+
+      # AWS_APPLY_ROLE_ARN is set per github environment
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - run: terraform init -input=false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_ENV }}
+          path: envs/${{ env.TF_ENV }}
+
+      # apply the same plan that was shown, fails if state changed in between
+      - run: terraform apply -input=false tfplan
