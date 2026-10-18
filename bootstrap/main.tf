@@ -29,6 +29,16 @@ variable "github_repo" {
   type        = string
 }
 
+variable "github_sub_prefix" {
+  description = "oidc sub prefix, empty means repo:<github_repo>"
+  type        = string
+  default     = ""
+}
+
+locals {
+  sub_prefix = var.github_sub_prefix != "" ? var.github_sub_prefix : "repo:${var.github_repo}"
+}
+
 variable "create_oidc_provider" {
   description = "false if the account already has the github oidc provider"
   type        = bool
@@ -104,10 +114,10 @@ data "aws_iam_policy_document" "trust_plan" {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${var.github_repo}:pull_request",
-        "repo:${var.github_repo}:ref:refs/heads/dev",
-        "repo:${var.github_repo}:ref:refs/heads/staging",
-        "repo:${var.github_repo}:ref:refs/heads/main",
+        "${local.sub_prefix}:pull_request",
+        "${local.sub_prefix}:ref:refs/heads/dev",
+        "${local.sub_prefix}:ref:refs/heads/staging",
+        "${local.sub_prefix}:ref:refs/heads/main",
       ]
     }
   }
@@ -129,7 +139,7 @@ data "aws_iam_policy_document" "trust_apply" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:environment:${var.environment}"]
+      values   = ["${local.sub_prefix}:environment:${var.environment}"]
     }
   }
 }
