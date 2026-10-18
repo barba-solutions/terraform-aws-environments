@@ -4,3 +4,4 @@
 *.tfplan
 crash.log
 *.auto.tfvars
+.DS_Store
