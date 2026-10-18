@@ -16,7 +16,7 @@ concurrency:
 jobs:
   promotion-guard:
     name: Enforce promotion path
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: check branches
         env:
@@ -34,7 +34,7 @@ jobs:
   plan:
     name: Plan
     needs: promotion-guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       TF_ENV: ${{ github.base_ref == 'main' && 'prod' || github.base_ref }}
       TF_IN_AUTOMATION: "true"
