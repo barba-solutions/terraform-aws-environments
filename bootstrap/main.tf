@@ -103,7 +103,12 @@ data "aws_iam_policy_document" "trust_plan" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:pull_request"]
+      values = [
+        "repo:${var.github_repo}:pull_request",
+        "repo:${var.github_repo}:ref:refs/heads/dev",
+        "repo:${var.github_repo}:ref:refs/heads/staging",
+        "repo:${var.github_repo}:ref:refs/heads/main",
+      ]
     }
   }
 }
