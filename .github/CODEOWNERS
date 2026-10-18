@@ -1,0 +1,4 @@
+# changes to prod config, modules and workflows need review
+/envs/prod/   @barbasolutions
+/modules/     @barbasolutions
+/.github/     @barbasolutions
