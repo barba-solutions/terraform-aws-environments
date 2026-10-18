@@ -33,6 +33,14 @@ jobs:
           terraform_version: 1.10.5
           terraform_wrapper: false
 
+      - name: debug oidc sub
+        run: |
+          TOKEN=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          P=$(echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+')
+          P="$P$(printf '%*s' $(( (4 - ${#P} % 4) % 4 )) '' | tr ' ' '=')"
+          echo "$P" | base64 -d | jq '{sub, aud, repository, ref, job_workflow_ref}'    
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars[format('PLAN_ROLE_ARN_{0}', env.TF_ENV)] }}
